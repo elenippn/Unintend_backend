@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
@@ -205,10 +206,12 @@ def _ensure_student_profile_post(db: Session, user: User, sp: StudentProfile | N
             description=description,
             location=None,
             is_active=True,
+            updated_at=datetime.utcnow(),
         )
         db.add(spost)
     else:
         spost.title = title
         spost.description = description
+        spost.updated_at = datetime.utcnow()
 
     db.flush()
