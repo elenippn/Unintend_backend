@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from uuid import uuid4
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, Request
 from sqlalchemy.orm import Session
@@ -65,6 +66,17 @@ def upload_my_profile_image(
 ):
     url = _save_upload(upload=file, subdir="profiles")
     current.profile_image_url = url
+
+    # If student updates their profile image, treat it as a profile update for the company feed card.
+    if current.role == UserRole.STUDENT:
+        spost = (
+            db.query(StudentProfilePost)
+            .filter(StudentProfilePost.student_user_id == current.id)
+            .first()
+        )
+        if spost:
+            spost.updated_at = datetime.utcnow()
+
     db.commit()
     return {"profileImageUrl": to_public_url(url, request)}
 
@@ -111,6 +123,7 @@ def upload_student_profile_post_image(
 
     url = _save_upload(upload=file, subdir="student-profile-posts")
     post.image_url = url
+    post.updated_at = datetime.utcnow()
     db.commit()
     return {"imageUrl": to_public_url(url, request)}
 

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from ..deps import get_db, get_current_user
 from ..models import (
@@ -96,7 +97,10 @@ def company_feed(
     if current.role != UserRole.COMPANY:
         raise HTTPException(status_code=403, detail="Only companies have this feed")
 
-    # For companies: hide a student profile post only if company passed, OR company decided and student decided.
+    # For companies:
+    # - LIKE/PASS are stored on CompanyStudentPostInteraction.
+    # - PASS should hide only until the student updates their profile (StudentProfilePost.updated_at).
+    #   After profile changes, the card should re-appear so the company can re-evaluate.
     student_decisions = (
         db.query(StudentPostInteraction.student_user_id, StudentPostInteraction.post_id, StudentPostInteraction.decision)
         .filter(StudentPostInteraction.decision != Decision.NONE)
@@ -107,9 +111,24 @@ def company_feed(
         db.query(CompanyStudentPostInteraction.student_post_id)
         .filter(CompanyStudentPostInteraction.company_user_id == current.id)
         .filter(
-            (CompanyStudentPostInteraction.decision == Decision.PASS)
-            | (
+            # PASS hides only if it's "current" relative to the latest profile update.
+            (
+                (CompanyStudentPostInteraction.decision == Decision.PASS)
+                & (
+                    CompanyStudentPostInteraction.student_post_id.in_(
+                        db.query(StudentProfilePost.id)
+                        .filter(
+                            func.coalesce(StudentProfilePost.updated_at, StudentProfilePost.created_at)
+                            <= CompanyStudentPostInteraction.decided_at
+                        )
+                    )
+                )
+            )
+            |
+            # For any non-PASS decisions (i.e. LIKE), keep the previous behavior: hide only once the student has also decided.
+            (
                 (CompanyStudentPostInteraction.decision != Decision.NONE)
+                & (CompanyStudentPostInteraction.decision != Decision.PASS)
                 & (
                     CompanyStudentPostInteraction.student_post_id.in_(
                         db.query(StudentProfilePost.id)

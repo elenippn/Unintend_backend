@@ -123,6 +123,7 @@ class StudentProfilePost(Base):
 
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     student_user = relationship("User")
 
