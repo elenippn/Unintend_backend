@@ -85,6 +85,7 @@ def student_feed(
             title=p.title,
             description=p.description,
             location=p.location,
+            department=p.department,
             imageUrl=to_public_url(p.image_url, request),
             saved=is_saved,
             createdAt=p.created_at,
