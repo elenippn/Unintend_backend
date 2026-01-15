@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from ..deps import get_db, get_current_user
-from ..models import User, UserRole, StudentProfile
-from ..schemas import StudentPublicProfileResponse
+from ..models import User, UserRole, StudentProfile, CompanyProfile
+from ..schemas import StudentPublicProfileResponse, CompanyPublicProfileResponse
 from ..url_utils import to_public_url
 
 router = APIRouter(prefix="/profiles", tags=["profiles"])
@@ -34,4 +34,32 @@ def get_student_public_profile(
         skills=sp.skills if sp else None,
         studies=sp.studies if sp else None,
         experience=sp.experience if sp else None,
+    )
+
+
+@router.get("/companies/{company_user_id}", response_model=CompanyPublicProfileResponse)
+def get_company_public_profile(
+    company_user_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _current: User = Depends(get_current_user),
+):
+    user = db.get(User, company_user_id)
+    if not user or user.role != UserRole.COMPANY:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    cp = db.query(CompanyProfile).filter(CompanyProfile.user_id == user.id).first()
+
+    return CompanyPublicProfileResponse(
+        id=user.id,
+        username=user.username,
+        name=user.name,
+        surname=user.surname,
+        profileImageUrl=to_public_url(user.profile_image_url, request),
+        companyName=cp.company_name if cp else None,
+        industry=cp.industry if cp else None,
+        bio=cp.bio if cp else None,
+        companyBio=cp.description if cp else None,
+        description=cp.description if cp else None,
+        website=cp.website if cp else None,
     )
