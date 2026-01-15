@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import asc, func
 from datetime import datetime
 
 from ..deps import get_db, get_current_user
-from ..models import Conversation, Message, MessageType, Application, UserRole, ApplicationStatus, ConversationParticipant
+from ..models import Conversation, Message, MessageType, Application, UserRole, ApplicationStatus, ConversationParticipant, User
 from ..schemas import MessageResponse, SendMessageRequest, MarkConversationReadRequest, MarkConversationReadResponse
+from ..url_utils import to_public_url
 
 router = APIRouter(prefix="/conversations", tags=["chat"])
 
@@ -73,6 +74,7 @@ def _unread_count(db: Session, *, conversation_id: int, user_id: int, last_read_
 @router.get("/{conversation_id}/messages", response_model=list[MessageResponse])
 def get_messages(
     conversation_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current=Depends(get_current_user),
 ):
@@ -87,12 +89,13 @@ def get_messages(
     )
     app = db.get(Application, db.get(Conversation, conversation_id).application_id)
 
-    return [_message_to_response(m, app) for m in msgs]
+    return [_message_to_response(m, app, db, request) for m in msgs]
 
 
 @router.post("/{conversation_id}/messages", response_model=MessageResponse)
 def send_message(
     conversation_id: int,
+    request: Request,
     req: SendMessageRequest,
     db: Session = Depends(get_db),
     current=Depends(get_current_user),
@@ -141,7 +144,7 @@ def send_message(
 
     db.commit()
     db.refresh(msg)
-    return _message_to_response(msg, app)
+    return _message_to_response(msg, app, db, request)
 
 
 @router.post("/{conversation_id}/read", response_model=MarkConversationReadResponse)
@@ -185,14 +188,29 @@ def mark_conversation_read(
     )
 
 
-def _message_to_response(m: Message, app: Application) -> MessageResponse:
+def _message_to_response(m: Message, app: Application, db: Session, request: Request) -> MessageResponse:
     sender_role = None
+    sender_user = None
+    sender_name = None
+    sender_profile_image_url = None
+    
     if m.sender_user_id is None:
         sender_role = None
     elif m.sender_user_id == app.company_user_id:
         sender_role = UserRole.COMPANY
+        sender_user = db.get(User, m.sender_user_id)
+        if sender_user:
+            if sender_user.company_profile and sender_user.company_profile.company_name:
+                sender_name = sender_user.company_profile.company_name
+            else:
+                sender_name = sender_user.username
+            sender_profile_image_url = to_public_url(sender_user.profile_image_url, request)
     elif m.sender_user_id == app.student_user_id:
         sender_role = UserRole.STUDENT
+        sender_user = db.get(User, m.sender_user_id)
+        if sender_user:
+            sender_name = sender_user.username
+            sender_profile_image_url = to_public_url(sender_user.profile_image_url, request)
 
     return MessageResponse(
         id=m.id,
@@ -200,6 +218,8 @@ def _message_to_response(m: Message, app: Application) -> MessageResponse:
         senderUserId=m.sender_user_id,
         text=m.text,
         createdAt=m.created_at,
+        senderProfileImageUrl=sender_profile_image_url,
+        senderName=sender_name,
         fromCompany=(sender_role == UserRole.COMPANY),
         isSystem=(m.type == MessageType.SYSTEM),
     )
