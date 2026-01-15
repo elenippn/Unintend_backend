@@ -104,6 +104,11 @@ def student_feed(
             companyUserId=p.company_user_id,
             companyName=company_name,
             companyProfileImageUrl=to_public_url(company_profile_image_url, request),
+            # NEW: missing fields for company map data
+            username=company_user.username if company_user else None,
+            bio=cp.bio if cp else None,
+            companyBio=cp.description if cp else None,
+            profileImageUrl=to_public_url(company_profile_image_url, request),
             title=p.title,
             description=p.description,
             location=p.location,

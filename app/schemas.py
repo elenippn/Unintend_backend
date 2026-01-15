@@ -67,6 +67,21 @@ class StudentPublicProfileResponse(BaseModel):
     experience: Optional[str] = None
 
 
+class CompanyPublicProfileResponse(BaseModel):
+    id: int
+    username: str
+    name: Optional[str] = None
+    surname: Optional[str] = None
+    profileImageUrl: Optional[str] = None
+
+    companyName: Optional[str] = None
+    industry: Optional[str] = None
+    bio: Optional[str] = None
+    companyBio: Optional[str] = None
+    description: Optional[str] = None
+    website: Optional[str] = None
+
+
 class PostCreateRequest(BaseModel):
     title: str
     description: str
@@ -79,6 +94,11 @@ class PostResponse(BaseModel):
     companyUserId: int
     companyName: Optional[str]
     companyProfileImageUrl: Optional[str] = None
+    # NEW fields for company map data
+    username: Optional[str] = None
+    bio: Optional[str] = None
+    companyBio: Optional[str] = None
+    profileImageUrl: Optional[str] = None
     title: str
     description: str
     location: Optional[str]

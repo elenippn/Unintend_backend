@@ -101,6 +101,7 @@ def ensure_company_profile(db: Session, user_id: int, company_name: str, industr
         company_name=company_name,
         industry=industry,
         description=description,
+        bio=description,  # Set bio same as description for company profiles
         website=website,
     )
     db.add(cp)
