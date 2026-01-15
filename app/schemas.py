@@ -186,6 +186,7 @@ class ApplicationListItem(BaseModel):
     postTitle: str
 
     otherPartyName: str  # companyName for student, or student username for company
+    otherPartyProfileImageUrl: Optional[str] = None  # NEW: Profile image of the other party
 
     # requested
     lastMessage: Optional[str]
@@ -212,6 +213,10 @@ class MessageResponse(BaseModel):
     senderUserId: Optional[int] = Field(default=None, alias="sender_user_id")
     text: str
     createdAt: datetime = Field(alias="created_at")
+
+    # NEW: Profile image and name of sender for UI
+    senderProfileImageUrl: Optional[str] = None
+    senderName: Optional[str] = None
 
     # derived flags
     fromCompany: bool

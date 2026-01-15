@@ -1,5 +1,5 @@
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, and_, func
 
@@ -10,6 +10,7 @@ from ..models import (
     ConversationParticipant,
 )
 from ..schemas import ApplicationListItem, SetApplicationStatusRequest
+from ..url_utils import to_public_url
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -28,6 +29,7 @@ def status_to_system_text(status: ApplicationStatus) -> str:
 
 @router.get("", response_model=list[ApplicationListItem])
 def list_applications(
+    request: Request,
     db: Session = Depends(get_db),
     current=Depends(get_current_user),
 ):
@@ -93,13 +95,15 @@ def list_applications(
         post = db.get(InternshipPost, a.post_id)
         post_title = post.title if post else "Internship"
 
-        # other party display name
+        # other party display name and profile image
         if current.role == UserRole.STUDENT:
             other_party = db.get(User, a.company_user_id)
             other_name = other_party.company_profile.company_name if other_party and other_party.company_profile and other_party.company_profile.company_name else (other_party.username if other_party else "Company")
         else:
             other_party = db.get(User, a.student_user_id)
             other_name = other_party.username if other_party else "Student"
+        
+        other_party_profile_image = to_public_url(other_party.profile_image_url if other_party else None, request)
 
         out.append(ApplicationListItem(
             applicationId=a.id,
@@ -108,6 +112,7 @@ def list_applications(
             postId=a.post_id,
             postTitle=post_title,
             otherPartyName=other_name,
+            otherPartyProfileImageUrl=other_party_profile_image,
             lastMessage=last_msg.text if last_msg else None,
             unreadCount=int(unread_count),
             lastMessageId=last_msg.id if last_msg else None,
