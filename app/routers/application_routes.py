@@ -33,6 +33,12 @@ def list_applications(
     db: Session = Depends(get_db),
     current=Depends(get_current_user),
 ):
+    """
+    Get all applications for current user.
+    
+    Returns applications with conversation details, decisions, and deduplication.
+    Filters out duplicate applications for the same conversation/participants.
+    """
     # Student: applications where student_user_id = current
     # Company: applications where company_user_id = current
     q = db.query(Application)
@@ -41,16 +47,37 @@ def list_applications(
     else:
         q = q.filter(Application.company_user_id == current.id)
 
-    apps = q.order_by(Application.updated_at.desc()).limit(50).all()
+    apps = q.order_by(Application.updated_at.desc()).all()
 
+    # Deduplication: track seen conversation IDs and participant pairs
+    seen_conversations = set()
+    seen_participants = set()
     out = []
+    
     for a in apps:
         conv = db.query(Conversation).filter(Conversation.application_id == a.id).first()
+        
+        # Deduplication check
+        if conv:
+            if conv.id in seen_conversations:
+                continue
+            seen_conversations.add(conv.id)
+        
+        # Also deduplicate by participant pair + post (in case of missing conversation)
+        participant_key = (
+            min(a.student_user_id, a.company_user_id),
+            max(a.student_user_id, a.company_user_id),
+            a.post_id
+        )
+        if participant_key in seen_participants:
+            continue
+        seen_participants.add(participant_key)
+        
+        # Skip if no conversation exists
         if not conv:
             continue
 
-        # Backfill participant state for existing conversations (seeded to last message so users
-        # don't suddenly see lots of unread after this feature ships).
+        # Backfill participant state for existing conversations
         part = (
             db.query(ConversationParticipant)
             .filter(
@@ -104,19 +131,30 @@ def list_applications(
             other_name = other_party.username if other_party else "Student"
         
         other_party_profile_image = to_public_url(other_party.profile_image_url if other_party else None, request)
+        
+        # Convert Decision enums to string for response
+        student_decision_str = a.student_decision.value if a.student_decision else None
+        company_decision_str = a.company_decision.value if a.company_decision else None
 
         out.append(ApplicationListItem(
             applicationId=a.id,
             status=a.status,
-            conversationId=conv.id,
+            conversationId=conv.id if conv else None,
             postId=a.post_id,
             postTitle=post_title,
+            studentUserId=a.student_user_id,
+            companyUserId=a.company_user_id,
+            studentDecision=student_decision_str,
+            companyDecision=company_decision_str,
             otherPartyName=other_name,
             otherPartyProfileImageUrl=other_party_profile_image,
             lastMessage=last_msg.text if last_msg else None,
             unreadCount=int(unread_count),
             lastMessageId=last_msg.id if last_msg else None,
             lastMessageAt=last_msg.created_at if last_msg else None,
+            internshipTitle=post_title,
+            createdAt=a.created_at,
+            updatedAt=a.updated_at,
         ))
 
     db.commit()

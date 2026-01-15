@@ -179,22 +179,32 @@ class StudentProfilePostResponse(BaseModel):
 class ApplicationListItem(BaseModel):
     applicationId: int
     status: ApplicationStatus
-    conversationId: int
+    conversationId: Optional[int] = None  # null if no match yet
 
     # useful for UI
     postId: int
     postTitle: str
+    studentUserId: int
+    companyUserId: int
+
+    # Track decisions
+    studentDecision: Optional[Literal["LIKE", "PASS"]] = None
+    companyDecision: Optional[Literal["LIKE", "PASS"]] = None
 
     otherPartyName: str  # companyName for student, or student username for company
     otherPartyProfileImageUrl: Optional[str] = None  # NEW: Profile image of the other party
 
     # requested
-    lastMessage: Optional[str]
+    lastMessage: Optional[str] = None
 
     # unread state (for Messages list dot)
     unreadCount: int = 0
     lastMessageId: Optional[int] = None
     lastMessageAt: Optional[datetime] = None
+    
+    internshipTitle: Optional[str] = None  # Alias for postTitle
+    createdAt: Optional[datetime] = None
+    updatedAt: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -210,9 +220,9 @@ class MessageResponse(BaseModel):
 
     id: int
     type: MessageType
-    senderUserId: Optional[int] = Field(default=None, alias="sender_user_id")
+    senderUserId: Optional[int] = None  # Remove alias, use direct field name
     text: str
-    createdAt: datetime = Field(alias="created_at")
+    createdAt: datetime
 
     # NEW: Profile image and name of sender for UI
     senderProfileImageUrl: Optional[str] = None

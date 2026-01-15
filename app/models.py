@@ -222,6 +222,10 @@ class Application(Base):
     student_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     company_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
 
+    # Track individual decisions from each party
+    student_decision = Column(Enum(Decision), nullable=True)  # LIKE/PASS/None
+    company_decision = Column(Enum(Decision), nullable=True)  # LIKE/PASS/None
+
     status = Column(Enum(ApplicationStatus), default=ApplicationStatus.PENDING, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)

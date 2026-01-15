@@ -43,6 +43,10 @@ def ensure_sqlite_columns(engine) -> None:
         "student_experience_posts": {
             "image_url": "TEXT",
         },
+        "applications": {
+            "student_decision": "TEXT",  # LIKE/PASS/None
+            "company_decision": "TEXT",  # LIKE/PASS/None
+        },
     }
 
     with engine.connect() as conn:

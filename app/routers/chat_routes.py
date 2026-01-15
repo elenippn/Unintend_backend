@@ -215,9 +215,9 @@ def _message_to_response(m: Message, app: Application, db: Session, request: Req
     return MessageResponse(
         id=m.id,
         type=m.type,
-        senderUserId=m.sender_user_id,
+        senderUserId=m.sender_user_id,  # Direct assignment
         text=m.text,
-        createdAt=m.created_at,
+        createdAt=m.created_at,  # Direct assignment
         senderProfileImageUrl=sender_profile_image_url,
         senderName=sender_name,
         fromCompany=(sender_role == UserRole.COMPANY),
