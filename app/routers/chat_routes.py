@@ -5,7 +5,7 @@ from datetime import datetime
 
 from ..deps import get_db, get_current_user
 from ..models import Conversation, Message, MessageType, Application, UserRole, ApplicationStatus, ConversationParticipant, User
-from ..schemas import MessageResponse, SendMessageRequest, MarkConversationReadRequest, MarkConversationReadResponse
+from ..schemas import MessageResponse, MessageSender, SendMessageRequest, MarkConversationReadRequest, MarkConversationReadResponse
 from ..url_utils import to_public_url
 
 router = APIRouter(prefix="/conversations", tags=["chat"])
@@ -89,7 +89,7 @@ def get_messages(
     )
     app = db.get(Application, db.get(Conversation, conversation_id).application_id)
 
-    return [_message_to_response(m, app, db, request) for m in msgs]
+    return [_message_to_response(m, app, db, request, requester_user_id=current.id) for m in msgs]
 
 
 @router.post("/{conversation_id}/messages", response_model=MessageResponse)
@@ -144,7 +144,7 @@ def send_message(
 
     db.commit()
     db.refresh(msg)
-    return _message_to_response(msg, app, db, request)
+    return _message_to_response(msg, app, db, request, requester_user_id=current.id)
 
 
 @router.post("/{conversation_id}/read", response_model=MarkConversationReadResponse)
@@ -188,7 +188,14 @@ def mark_conversation_read(
     )
 
 
-def _message_to_response(m: Message, app: Application, db: Session, request: Request) -> MessageResponse:
+def _message_to_response(
+    m: Message,
+    app: Application,
+    db: Session,
+    request: Request,
+    *,
+    requester_user_id: int | None = None,
+) -> MessageResponse:
     sender_role = None
     sender_user = None
     sender_name = None
@@ -212,14 +219,32 @@ def _message_to_response(m: Message, app: Application, db: Session, request: Req
             sender_name = sender_user.username
             sender_profile_image_url = to_public_url(sender_user.profile_image_url, request)
 
+    sender_id = m.sender_user_id
+    is_mine = None
+    if requester_user_id is not None and sender_id is not None:
+        is_mine = sender_id == requester_user_id
+
+    sender_obj = None
+    if sender_id is not None:
+        sender_obj = MessageSender(
+            id=sender_id,
+            role=sender_role,
+            name=sender_name,
+            avatarUrl=sender_profile_image_url,
+        )
+
     return MessageResponse(
         id=m.id,
         type=m.type,
-        senderUserId=m.sender_user_id,  # Direct assignment
+        senderId=sender_id,
+        senderUserId=sender_id,
+        senderRole=sender_role,
         text=m.text,
         createdAt=m.created_at,  # Direct assignment
         senderProfileImageUrl=sender_profile_image_url,
         senderName=sender_name,
+        sender=sender_obj,
+        isMine=is_mine,
         fromCompany=(sender_role == UserRole.COMPANY),
         isSystem=(m.type == MessageType.SYSTEM),
     )

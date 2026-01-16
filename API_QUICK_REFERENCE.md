@@ -173,6 +173,59 @@ function getLikeStatus(app, currentRole) {
 }
 ```
 
+## Chat
+
+### Get Conversation Messages
+```http
+GET /conversations/{conversationId}/messages
+Authorization: Bearer {token}
+```
+
+**Response (always stable sender identity):**
+```json
+[
+  {
+    "id": 123,
+    "text": "Καλημέρα...",
+    "createdAt": "2026-01-16T12:34:56Z",
+    "senderId": 45,
+    "senderRole": "COMPANY",
+    "sender": {
+      "id": 45,
+      "role": "COMPANY",
+      "name": "Acme Corp",
+      "avatarUrl": "/uploads/profiles/acme.jpg"
+    },
+    "type": "USER",
+    "isSystem": false,
+    "isMine": false
+  }
+]
+```
+
+**System message rules:**
+- `type="SYSTEM"`
+- `senderId=null` and `sender=null` (if there is no human sender)
+
+**Naming consistency:**
+- Use `senderId` everywhere (canonical)
+- `senderUserId` may still appear for backwards compatibility, but should be treated as deprecated
+
+### Send Message
+```http
+POST /conversations/{conversationId}/messages
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "text": "Hello!"
+}
+```
+
+**Notes:**
+- Sender is derived from the JWT/session (not from client payload)
+- Response includes the same message shape as GET (`senderId` always present)
+
 ## Testing with curl
 
 ### Student Login

@@ -1,5 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from pydantic.aliases import AliasChoices
 from typing import Optional, List, Literal
 
 from .models import UserRole, Decision, ApplicationStatus, MessageType
@@ -215,20 +216,42 @@ class SetApplicationStatusRequest(BaseModel):
     status: Literal["ACCEPTED", "DECLINED", "LIKE", "PASS"]
 
 
+class MessageSender(BaseModel):
+    id: int
+    role: Optional[UserRole] = None
+    name: Optional[str] = None
+    avatarUrl: Optional[str] = None
+
+
 class MessageResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     id: int
     type: MessageType
-    senderUserId: Optional[int] = None  # Remove alias, use direct field name
+    # Canonical sender identity (stable across endpoints/roles)
+    senderId: Optional[int] = Field(
+        default=None,
+        validation_alias=AliasChoices("senderId", "senderUserId"),
+        serialization_alias="senderId",
+    )
+
+    # Backwards-compatible mirror (deprecated)
+    senderUserId: Optional[int] = None
+
+    senderRole: Optional[UserRole] = None
     text: str
     createdAt: datetime
 
-    # NEW: Profile image and name of sender for UI
-    senderProfileImageUrl: Optional[str] = None
+    # Optional richer identity
     senderName: Optional[str] = None
+    senderProfileImageUrl: Optional[str] = None
 
-    # derived flags
+    sender: Optional[MessageSender] = None
+
+    # Optional: computed server-side for the current requester
+    isMine: Optional[bool] = None
+
+    # derived flags (kept for existing UI)
     fromCompany: bool
     isSystem: bool
 
