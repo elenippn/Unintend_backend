@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+.env
+unintend.db
+uploads/*
+!uploads/healthcheck.txt
+!.gitkeep
