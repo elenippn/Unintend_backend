@@ -1,15 +1,7 @@
 services:
   - type: web
     name: unintend-backend
-    env: docker  # Using Docker instead of python
-    region: frankfurt  # Ή oregon αν προτιμάτε US
+    env: docker
     plan: free
-    branch: main
-    dockerfilePath: ./Dockerfile  # Use our Dockerfile
-    envVars:
-      - key: PORT
-        value: 8000
-    disk:
-      name: unintend-data
-      mountPath: /app
-      sizeGB: 1
+    autoDeploy: true
+    healthCheckPath: /
