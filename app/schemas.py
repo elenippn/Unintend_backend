@@ -90,6 +90,13 @@ class PostCreateRequest(BaseModel):
     department: Optional[str] = None
 
 
+class PostUpdateRequest(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    location: Optional[str] = None
+    department: Optional[str] = None
+
+
 class PostResponse(BaseModel):
     id: int
     companyUserId: int
@@ -125,6 +132,12 @@ class StudentSaveRequest(BaseModel):
 class StudentExperiencePostCreateRequest(BaseModel):
     title: str
     description: str
+    category: Optional[str] = None
+
+
+class StudentExperiencePostUpdateRequest(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
     category: Optional[str] = None
 
 

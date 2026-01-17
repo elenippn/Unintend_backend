@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from ..deps import get_db, get_current_user
 from ..models import UserRole, InternshipPost, CompanyProfile, User, StudentPostInteraction
-from ..schemas import PostCreateRequest, PostResponse
+from ..schemas import PostCreateRequest, PostUpdateRequest, PostResponse
 from ..url_utils import to_public_url
 from ..departments import CANONICAL_DEPARTMENTS, normalize_department
 
@@ -188,3 +188,67 @@ def delete_post(
     post.is_active = False
     db.commit()
     return Response(status_code=204)
+
+
+@router.put("/{post_id}", response_model=PostResponse)
+def update_post(
+    post_id: int,
+    request: Request,
+    req: PostUpdateRequest,
+    db: Session = Depends(get_db),
+    current=Depends(get_current_user),
+):
+    if current.role != UserRole.COMPANY:
+        raise HTTPException(status_code=403, detail="Only companies can update posts")
+
+    post = db.get(InternshipPost, post_id)
+    if not post or not post.is_active:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    if post.company_user_id != current.id:
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    # Update only provided fields
+    if req.title is not None:
+        post.title = req.title
+    if req.description is not None:
+        post.description = req.description
+    if req.location is not None:
+        post.location = req.location
+    if req.department is not None:
+        department = normalize_department(req.department)
+        if department is not None and department not in CANONICAL_DEPARTMENTS:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "message": "Invalid department",
+                    "allowed": list(CANONICAL_DEPARTMENTS),
+                    "received": req.department,
+                },
+            )
+        post.department = department
+
+    db.commit()
+    db.refresh(post)
+
+    company_name = None
+    if current.company_profile and current.company_profile.company_name:
+        company_name = current.company_profile.company_name
+
+    return PostResponse(
+        id=post.id,
+        companyUserId=post.company_user_id,
+        companyName=company_name,
+        companyProfileImageUrl=to_public_url(current.profile_image_url, request),
+        username=current.username,
+        bio=current.company_profile.bio if current.company_profile else None,
+        companyBio=current.company_profile.description if current.company_profile else None,
+        profileImageUrl=to_public_url(current.profile_image_url, request),
+        title=post.title,
+        description=post.description,
+        location=post.location,
+        department=post.department,
+        imageUrl=to_public_url(post.image_url, request),
+        saved=False,
+        createdAt=post.created_at,
+    )
