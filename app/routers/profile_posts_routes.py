@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from ..deps import get_db, get_current_user
 from ..models import User, UserRole, StudentExperiencePost
-from ..schemas import StudentExperiencePostCreateRequest, StudentExperiencePostResponse
+from ..schemas import StudentExperiencePostCreateRequest, StudentExperiencePostUpdateRequest, StudentExperiencePostResponse
 from ..url_utils import to_public_url
 
 router = APIRouter(prefix="/profile-posts", tags=["profile-posts"])
@@ -131,3 +131,47 @@ def delete_profile_post(
     db.add(post)
     db.commit()
     return Response(status_code=204)
+
+
+@router.put("/{post_id}", response_model=StudentExperiencePostResponse)
+def update_profile_post(
+    post_id: int,
+    request: Request,
+    req: StudentExperiencePostUpdateRequest,
+    db: Session = Depends(get_db),
+    current: User = Depends(get_current_user),
+):
+    _ensure_student_role(current)
+
+    post = (
+        db.query(StudentExperiencePost)
+        .filter(StudentExperiencePost.id == post_id)
+        .filter(StudentExperiencePost.is_active == True)
+        .first()
+    )
+    if not post:
+        raise HTTPException(status_code=404, detail="Profile post not found")
+
+    if post.student_user_id != current.id:
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    # Update only provided fields
+    if req.title is not None:
+        post.title = req.title
+    if req.description is not None:
+        post.description = req.description
+    if req.category is not None:
+        post.category = req.category
+
+    db.commit()
+    db.refresh(post)
+
+    return StudentExperiencePostResponse(
+        id=post.id,
+        studentUserId=post.student_user_id,
+        title=post.title,
+        description=post.description,
+        category=post.category,
+        imageUrl=to_public_url(post.image_url, request),
+        createdAt=post.created_at,
+    )
