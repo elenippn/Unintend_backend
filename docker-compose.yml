@@ -1,0 +1,16 @@
+# Docker Compose for local development/testing
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+    volumes:
+      # Mount uploads directory to persist data
+      - ./uploads:/app/uploads
+      # Mount database to persist data
+      - ./unintend.db:/app/unintend.db
+    restart: unless-stopped
